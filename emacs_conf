@@ -1,6 +1,7 @@
 
-;(tool-bar-mode -1)
+(tool-bar-mode -1)
 (menu-bar-mode -1)
+(toggle-scroll-bar -1)
 
 (setq-default indent-tabs-mode nil)
 (setq-default tab-width 4)
@@ -20,119 +21,158 @@
  '(custom-safe-themes
    (quote
     ("939ea070fb0141cd035608b2baabc4bd50d8ecc86af8528df9d41f4d83664c6a" "4cf9ed30ea575fb0ca3cff6ef34b1b87192965245776afa9e9e20c17d115f3fb" "84890723510d225c45aaff941a7e201606a48b973f0121cb9bcb0b9399be8cba" "aded61687237d1dff6325edb492bde536f40b048eab7246c61d5c6643c696b7f" default)))
- '(lsp-ui-doc-max-width 100)
- '(lsp-ui-doc-use-childframe nil)
+ '(lsp-ui-doc-border "gray16")
+ '(lsp-ui-doc-header t)
+ '(lsp-ui-doc-include-signature t)
+ '(lsp-ui-doc-max-height 20)
+ '(lsp-ui-doc-max-width 40)
+ '(lsp-ui-doc-position (quote top))
+ '(lsp-ui-doc-use-childframe t)
+ '(lsp-ui-doc-use-webkit t)
+ '(lsp-ui-peek-list-width 40)
  '(package-selected-packages
    (quote
-    (flycheck-golangci-lint evil-smartparens aggressive-indent helm-posframe ag powerline-evil helm projectile go-guru neotree exec-path-from-shell evil-leader fzf lsp-haskell lsp-elixir gruvbox-theme go-mode yasnippet company-lsp flycheck company lsp-ui lsp-mode ## evil-surround evil))))
+    (go-add-tags perspective color-identifiers-mode evil-collection hl-todo smartparens-config flycheck-golangci-lint evil-smartparens aggressive-indent helm-posframe ag powerline-evil helm projectile go-guru neotree exec-path-from-shell evil-leader fzf lsp-haskell lsp-elixir gruvbox-theme go-mode yasnippet company-lsp flycheck company lsp-ui lsp-mode ## evil-surround evil))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(lsp-ui-doc-background ((t (:background "color-234"))))
- '(lsp-ui-doc-header ((t (:background "color-235" :foreground "black")))))
+ '(lsp-ui-doc-background ((t (:background "gray14"))))
+ '(lsp-ui-doc-header ((t (:background "gray16" :foreground "dim gray"))))
+ '(lsp-ui-peek-header ((t (:background "gray14" :foreground "gray"))))
+ '(lsp-ui-peek-peek ((t (:background "gray14")))))
 
-(require 'evil)
-(require 'evil-leader)
-
-(projectile-mode +1)
-
-(global-evil-leader-mode)
-(evil-leader/set-leader ",")
-(evil-leader/set-key
- "e" 'fzf
- "b" 'switch-to-buffer
- "k" 'kill-buffer
- "c" 'delete-window
- "s" 'split-window-vertically
- "v" 'split-window-horizontally
- "p" 'projectile-commander
- )
-
-(evil-mode 1)
-
-(use-package evil-surround
-	     :ensure t
-	     :config
-	     (global-evil-surround-mode 1))
+(use-package evil
+  :ensure t
+  :init
+  (setq evil-want-keybinding nil)
+  :config
+  (evil-mode 1)
+  (use-package evil-leader
+    :ensure t
+    :after evil-collection
+    :config
+    (global-evil-leader-mode)
+    (evil-leader/set-leader ",")
+    (evil-leader/set-key
+      "e" 'fzf
+      "b" 'switch-to-buffer
+      "k" 'kill-buffer
+      "c" 'delete-window
+      "s" 'split-window-vertically
+      "v" 'split-window-horizontally
+      "p" 'projectile-commander
+      "f" 'avy-goto-char-timer
+      "l" 'avy-goto-line
+      ))
+  (use-package evil-surround
+    :ensure t
+    :config
+    (global-evil-surround-mode 1))
+  (use-package powerline-evil
+    :ensure t
+    :config
+    (powerline-center-evil-theme))
+  (use-package evil-smartparens
+    :ensure t
+    :config
+    (require 'smartparens-config)
+    (smartparens-mode t))
+  (use-package avy
+    :ensure t)
+  (use-package evil-collection
+    :ensure t
+    :config
+    (evil-collection-init)))
 
 (use-package lsp-mode
   :ensure t
   :commands (lsp lsp-deferred)
-  :hook (go-mode . lsp-deferred))
+  :hook (go-mode . lsp-deferred)
+  :config
+  (use-package lsp-ui
+    :ensure t
+    :commands lsp-ui-mode
+    :config
+    (define-key lsp-ui-mode-map [remap xref-find-definitions] #'lsp-ui-peek-find-definitions)
+    (define-key lsp-ui-mode-map [remap xref-find-references] #'lsp-ui-peek-find-references)
+    (lsp-ui-mode 1)
+    )
+  (evil-define-key nil evil-normal-state-map
+    "gd" 'lsp-find-definition
+    "gb" 'pop-tag-mark
+    "gi" 'lsp-find-implementation
+    "gc" 'compile
+    "gr" 'recompile
+    "g[" 'next-error
+    "g(" 'previous-error
+    "gp" 'xref-find-references
+    "go" 'xref-find-definitions
+    "gn" 'lsp-ui-peek--select-next
+    "gm" 'lsp-ui-peek--select-prev
+    "gh" 'lsp-ui-peek--select-next-file
+    "gj" 'lsp-ui-peek--select-prev-file
+    "gk" 'lsp-ui-peek--goto-xref
+    ))
 
-
-;; Set up before-save hooks to format buffer and add/delete imports.
-;; Make sure you don't have other gofmt/goimports hooks enabled.
-(defun lsp-go-install-save-hooks ()
-  (add-hook 'before-save-hook #'lsp-format-buffer t t)
-  (add-hook 'before-save-hook #'lsp-organize-imports t t))
-(add-hook 'go-mode-hook #'lsp-go-install-save-hooks)
-
-;; Optional - provides fancier overlays.
-(use-package lsp-ui
-  :ensure t
-  :commands lsp-ui-mode)
-(add-hook 'lsp-mode-hook 'lsp-ui-mode)
-
-;; Company mode is a standard completion package that works well with lsp-mode.
 (use-package company
   :ensure t
   :config
-  ;; Optionally enable completion-as-you-type behavior.
   (setq company-idle-delay 0)
-  (setq company-minimum-prefix-length 1))
+  (setq company-minimum-prefix-length 1)
+  (use-package company-lsp
+    :ensure t
+    :commands company-lsp)
+  (push 'company-lsp company-backends)
+  (global-set-key (kbd "C-<space>") 'company-lsp))
 
-;; company-lsp integrates company mode completion with lsp-mode.
-;; completion-at-point also works out of the box but doesn't support snippets.
-(use-package company-lsp
-  :ensure t
-  :commands company-lsp)
-(push 'company-lsp company-backends)
-
-;; Optional - provides snippet support.
 (use-package yasnippet
   :ensure t
   :commands yas-minor-mode
   :hook (go-mode . yas-minor-mode))
 
-(require 'go-guru)
-
-(defun my-go-mode-hook ()
+(use-package go-mode
+  :ensure t
+  :init
+  (add-to-list 'auto-mode-alist '("\\.go'" . go-mode))
+  :config
+  (use-package go-guru
+    :ensure t)
+  (use-package flycheck-golangci-lint
+    :ensure t
+    :init
+    (flycheck-golangci-lint-setup))
+  (use-package go-add-tags
+    :ensure t)
   (add-hook 'before-save-hook 'gofmt-before-save)
   (setq gofmt-command "goimports")
   (if (not (string-match "go" compile-command))
       (set (make-local-variable 'compile-command)
            "go build -v && go test -v && go vet"))
-
   (go-guru-hl-identifier-mode)
+  (add-hook 'before-save-hook #'lsp-format-buffer t t)
+  (add-hook 'before-save-hook #'lsp-organize-imports t t))
 
-  (evil-define-key nil evil-normal-state-map
-    "gd" 'lsp-find-definition
-    "gb" 'pop-tag-mark
-    "gc" 'compile
-    "gr" 'recompile
-    "g[" 'next-error
-    "g(" 'previous-error)
-                                        ;  (let ((govet (flycheck-checker-get 'go-vet 'command)))
-                                        ;  (when (equal (cadr govet) "tool")
-                                        ;  (setf (cdr govet) (cddr govet))))
-  )
-
-(use-package flycheck-golangci-lint
+(use-package projectile
   :ensure t
-  :hook (go-mode . flycheck-golangci-lint-setup))
+  :config
+  (projectile-mode 1))
 
-(add-hook 'go-mode-hook 'my-go-mode-hook)
+(use-package hl-todo
+  :ensure t
+  :config
+  (global-hl-todo-mode))
 
-(add-to-list 'auto-mode-alist '("\\.go'" . go-mode))
+(use-package perspective
+  :ensure t
+  :config
+  (persp-mode))
 
-(require 'powerline-evil)
-(powerline-center-evil-theme)
-
-(global-aggressive-indent-mode 1)
-
-(require 'smartparens-config)
-(smartparens-mode t)
+(add-hook 'dired-mode-hook
+          (lambda ()
+            (require 'dired)
+            (dired-hide-details-mode)
+            (define-key dired-mode-map (kbd "RET") 'dired-find-alternate-file)
+            (define-key dired-mode-map (kbd "^") (lambda () (interactive) (find-alternate-file "..")))))
 
